@@ -11,7 +11,7 @@ from sty import fg
 # Include any manually renamed pairs here
 manual_rename_dict = {
     # Example entry:
-    # "light.zjs_light_entity_id": "light.bedroom_light",    
+    # "light.zjs_light_entity_id": {'entity_id': 'light.bedroom_light', 'name': 'Bedroom Light'},
 }
 
 message_id = 1
@@ -71,8 +71,7 @@ async def get_platform_entities(websocket, platform):
     return entities
 
 
-# TODO: Also do icon?
-async def rename_entity(websocket, entity_id, new_entity_id, name=None):
+async def rename_entity(websocket, entity_id, new_entity_id, name=None, icon=None):
     global message_id
     request = {
         'id': message_id,
@@ -82,6 +81,8 @@ async def rename_entity(websocket, entity_id, new_entity_id, name=None):
     }
     if name is not None:
         request['name'] = name
+    if icon is not None:
+        request['icon'] = icon
     response = await send_and_wait(websocket, request)
     message_id += 1
 
@@ -134,7 +135,7 @@ async def build_zjs_node_dict(websocket, platform='zwave_js'):
     for entity in entities:
         node_id = devices_to_nodes[entity['device_id']]
         node_dict = nodes_to_entities.get(node_id, {})
-        node_dict[entity['entity_id']] = entity['name']
+        node_dict[entity['entity_id']] = entity
         nodes_to_entities[node_id] = node_dict
     
     return nodes_to_entities
@@ -180,7 +181,7 @@ async def build_ozw_node_dict(websocket, platform='ozw'):
     for entity in entities:
         node_id = devices_to_nodes[entity['device_id']]
         node_dict = nodes_to_entities.get(node_id, {})
-        node_dict[entity['entity_id']] = entity['name']
+        node_dict[entity['entity_id']] = entity
         nodes_to_entities[node_id] = node_dict
     
     return nodes_to_entities
@@ -208,13 +209,13 @@ async def main():
 
     websocket = await asyncws.connect(url)
 
-    async def rename_if_commit(entity_id, new_entity_id):
+    async def rename_if_commit(entity_id, new_entity_id, name=None, icon=None):
         nonlocal commit
         nonlocal renamed
         nonlocal errors
         print(fg.magenta + entity_id + fg.li_blue + '->' + fg.cyan + new_entity_id + fg.rs)
         if commit:
-            success = await rename_entity(websocket, entity_id, new_entity_id)
+            success = await rename_entity(websocket, entity_id, new_entity_id, name=name, icon=icon)
             if success:
                 renamed += 1
             else:
@@ -274,9 +275,10 @@ async def main():
         for zjs_entity_id in zjs_node:
             # If the entity is in the manual rename list, just rename
             if zjs_entity_id in manual_rename_dict:
-                new_entity_id = manual_rename_dict[zjs_entity_id]
+                new_entity = manual_rename_dict[zjs_entity_id]
+                new_entity_id = new_entity['entity_id']
                 all_node_ids.discard(node_id)
-                await rename_if_commit(zjs_entity_id, new_entity_id)
+                await rename_if_commit(zjs_entity_id, new_entity_id, name=new_entity.get('name'), icon=new_entity.get('icon'))
                 continue
 
             # TODO: It would be awesome to add some fuzzy matching based on similarity of names
@@ -287,8 +289,9 @@ async def main():
             ozw_entities_of_type = [e for e in ozw_node if e.split('.')[0] == entity_type]
             if len(ozw_entities_of_type) == 1 and len(zjs_entities_of_type) == 1:
                 ozw_entity_id = ozw_entities_of_type[0]
+                ozw_entity = ozw_node[ozw_entity_id]
                 all_node_ids.discard(node_id)
-                await rename_if_commit(zjs_entity_id, ozw_entity_id)
+                await rename_if_commit(zjs_entity_id, ozw_entity_id, name=ozw_entity.get('name'), icon=ozw_entity.get('icon'))
                 continue
 
             # If the above two are not true then print out (so we can build the manual renaming list)
@@ -310,7 +313,7 @@ async def main():
                 possible_names_string = ''
                 if len(possible_names) > 0:
                     possible_names_string = f'entities: {", ".join(possible_names)}'
-                print(f"    '{entity_id}': '??', # Node {node_id} {possible_names_string}")
+                print(f"    '{entity_id}': {{'entity_id': '??', 'name': '??'}}', # Node {node_id} {possible_names_string}")
         print('}')
 
     if len(all_node_ids) > 0:
