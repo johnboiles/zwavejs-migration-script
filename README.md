@@ -16,6 +16,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+You'll also need to get an access token from you Home Assistant (Profile -> Long-Lived Access Tokens -> Create Token). Then set it as an environment variable before running this script.
+
+```bash
+export HA_ACCESS_TOKEN=yoursuperlongsupersecretaccesstoken
+```
+
 ## Usage
 
 ### Run the thing (dry run)
