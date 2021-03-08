@@ -23,12 +23,12 @@ async def send_and_wait(websocket, request):
 
     message = await websocket.recv()
     if message is None:
-        print('Received empty message')
+        print(fg.red + 'Received empty message' + fg.rs)
         return None
 
     response = json.loads(message)
     if response.get('id') != message_id:
-        print('Invalid message ID in response request={request} response={response}')    
+        print(fg.red + f'Invalid message ID in response request={request} response={response}' + fg.rs)
         return None
 
     return response
@@ -87,22 +87,10 @@ async def rename_entity(websocket, entity_id, new_entity_id, name=None, icon=Non
     message_id += 1
 
     if response is None or response["success"] == False:
-        print(f'Error renaming: {entity_id}')
+        print(fg.red + f'Error renaming: {entity_id}' + fg.rs)
         return False
 
     return True
-
-
-async def wait_for_message_id(websocket, message_id):
-    while True:
-        message = await websocket.recv()
-        if message is None:
-            return None
-        response = json.loads(message)
-        if "id" in response and response["id"] == message_id:
-            return response
-        else:
-            print(f'discaring response: {response}')
 
 
 async def build_zjs_node_dict(websocket, platform='zwave_js'):
